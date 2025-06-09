@@ -11,9 +11,10 @@ optimization, error handling, and implementation of performance features.
 The core mathematical algorithms and model logic remain based on original research.
 
 Usage:
-- python run_optimized_simple.py --test
-- python run_optimized_simple.py --n_sims 100
-- python run_optimized_simple.py --n_sims 1000 --n_years 50
+- python run_optimized.py --test
+- python run_optimized.py --n_sims 100
+- python run_optimized.py --n_sims 1000 --n_years 50
+- python run_optimized.py --n_sims 100 --mute
 
 Author: Joshua King
 Date: June 9, 2025
@@ -55,13 +56,10 @@ def create_results_folder(n_simulations, n_years):
     os.makedirs(os.path.join(results_folder, "time_series"), exist_ok=True)
     os.makedirs(os.path.join(results_folder, "parameter_estimates"), exist_ok=True)
     os.makedirs(os.path.join(results_folder, "summary"), exist_ok=True)
-    
-    print(f"Created results folder: {results_folder}/")
-    print()
-    
+
     return results_folder
 
-def run_optimized_simulation(n_simulations=1, n_years=100, seed=42):
+def run_optimized_simulation(n_simulations=1, n_years=100, seed=42, mute=False):
     """
     Run optimized simulation study using monkey-patching to match run_comparison.py behavior
     """
@@ -72,8 +70,7 @@ def run_optimized_simulation(n_simulations=1, n_years=100, seed=42):
     results_folder = create_results_folder(n_simulations, n_years)
     
     print("RUNNING OPTIMIZED SIMULATION")
-    print("="*40)
-    print("Patching estimation functions with optimized versions...")
+    print("="*50)
     
     # Set seed to match run_comparison.py behavior
     np.random.seed(seed)
@@ -93,7 +90,8 @@ def run_optimized_simulation(n_simulations=1, n_years=100, seed=42):
         n_simulations=n_simulations,
         n_years=n_years,
         save_results=True,
-        results_folder=results_folder
+        results_folder=results_folder,
+        mute=mute
     )
     total_time = time.time() - start_time
     
@@ -101,44 +99,44 @@ def run_optimized_simulation(n_simulations=1, n_years=100, seed=42):
     LindleySnowModel.log_likelihood = original_log_likelihood
     LindleySnowModel.estimate_parameters = original_estimate_parameters
     
-    print(f"\n✓ Optimized simulation complete: {format_duration(total_time)}")
-    
     # =================================================================
     # RESULTS SUMMARY
     # =================================================================
-    print("\n" + "="*60)
-    print("OPTIMIZED SIMULATION RESULTS")
-    print("="*60)
+    if not mute:
+        print("\n" + "="*60)
+        print("OPTIMIZED SIMULATION RESULTS")
+        print("="*60)
     
     valid_results = results['valid_results']
     success_rate = len(valid_results) / n_simulations * 100
     
-    print(f"Total simulations:         {n_simulations}")
-    print(f"Successful estimates:      {len(valid_results)}")
-    print(f"Success rate:              {success_rate:.1f}%")
-    print(f"Total runtime:             {format_duration(total_time)}")
-    
-    if len(valid_results) > 0:
-        avg_time_per_sim = total_time / n_simulations
-        print(f"Average time per sim:      {format_duration(avg_time_per_sim)}")
+    if not mute:
+        print(f"Total simulations:         {n_simulations}")
+        print(f"Successful estimates:      {len(valid_results)}")
+        print(f"Success rate:              {success_rate:.1f}%")
+        print(f"Total runtime:             {format_duration(total_time)}")
         
-        # Runtime projections
-        print(f"\nRUNTIME PROJECTIONS:")
-        for target_sims in [100, 1000, 10000]:
-            projected_time = avg_time_per_sim * target_sims
-            print(f"{target_sims:>6,} simulations: {format_duration(projected_time)}")
-    
-    # Parameter summary
-    print(f"\nPARAMETER ESTIMATION SUMMARY:")
-    print(f"{'Parameter':<10} | {'True':<10} | {'Mean':<10} | {'Std':<10} | {'Bias':<10}")
-    print("-" * 60)
-    
-    true_params = results['true_params']
-    summary_stats = results['summary_stats']
-    
-    for param in results['param_names']:
-        stats = summary_stats[param]
-        print(f"{param:<10} | {stats['true']:<10.6f} | {stats['mean']:<10.6f} | {stats['std']:<10.6f} | {stats['bias']:<10.6f}")
+        if len(valid_results) > 0:
+            avg_time_per_sim = total_time / n_simulations
+            print(f"Average time per sim:      {format_duration(avg_time_per_sim)}")
+            
+            # Runtime projections
+            print(f"\nRUNTIME PROJECTIONS:")
+            for target_sims in [100, 1000, 10000]:
+                projected_time = avg_time_per_sim * target_sims
+                print(f"{target_sims:>6,} simulations: {format_duration(projected_time)}")
+        
+        # Parameter summary
+        print(f"\nPARAMETER ESTIMATION SUMMARY:")
+        print(f"{'Parameter':<10} | {'True':<10} | {'Mean':<10} | {'Std':<10} | {'Bias':<10}")
+        print("-" * 60)
+        
+        true_params = results['true_params']
+        summary_stats = results['summary_stats']
+        
+        for param in results['param_names']:
+            stats = summary_stats[param]
+            print(f"{param:<10} | {stats['true']:<10.6f} | {stats['mean']:<10.6f} | {stats['std']:<10.6f} | {stats['bias']:<10.6f}")
     
     # =================================================================
     # SAVE SUMMARY FILE
@@ -152,6 +150,7 @@ def run_optimized_simulation(n_simulations=1, n_years=100, seed=42):
         f.write(f"Years per simulation: {n_years}\n")
         f.write(f"Random seed: {seed}\n")
         f.write(f"Estimation method: OPTIMIZED (vectorized)\n")
+        f.write(f"Mute mode: {mute}\n")
         f.write("\n")
         
         f.write("RESULTS SUMMARY\n")
@@ -168,6 +167,8 @@ def run_optimized_simulation(n_simulations=1, n_years=100, seed=42):
         f.write("-" * 25 + "\n")
         f.write(f"{'Parameter':<10} | {'True':<10} | {'Mean':<10} | {'Std':<10} | {'Bias':<10}\n")
         f.write("-" * 60 + "\n")
+        
+        summary_stats = results['summary_stats']
         for param in results['param_names']:
             stats = summary_stats[param]
             f.write(f"{param:<10} | {stats['true']:<10.6f} | {stats['mean']:<10.6f} | {stats['std']:<10.6f} | {stats['bias']:<10.6f}\n")
@@ -185,11 +186,16 @@ def run_optimized_simulation(n_simulations=1, n_years=100, seed=42):
         f.write(f"python visualize.py --folder {results_folder}\n")
     
     # Final output
-    print(f"\nRESULTS SAVED:")
-    print(f"Main folder:     {results_folder}/")
-    print(f"Summary file:    {summary_file}")
-    print(f"\nVISUALIZE WITH:")
-    print(f"python visualize.py --folder {results_folder}")
+    if not mute:
+        print(f"\nRESULTS SAVED:")
+        print(f"Main folder:     {results_folder}/")
+        print(f"Summary file:    {summary_file}")
+        print(f"\nVISUALIZE WITH:")
+        print(f"python visualize.py --folder {results_folder}")
+    else:
+        # In mute mode, still show essential completion info
+        print(f"\n✓ Optimized simulation complete: {n_simulations} sims, {success_rate:.1f}% success, {format_duration(total_time)}")
+        print(f"  \nResults saved to: {results_folder}/")
     
     return {
         'results': results,
@@ -251,6 +257,8 @@ def main():
                        help='Random seed for reproducibility (default: 42)')
     parser.add_argument('--list', action='store_true',
                        help='List available optimized results')
+    parser.add_argument('--mute', action='store_true',
+                       help='Show only progress bar and summary instead of detailed output')
     
     args = parser.parse_args()
     
@@ -263,13 +271,15 @@ def main():
     if args.test:
         n_simulations = 1
         n_years = 100
-        print("RUNNING TEST SIMULATION (OPTIMIZED)")
-        print("=" * 50)
+        if not args.mute:
+            print("RUNNING TEST SIMULATION (OPTIMIZED)")
+            print("=" * 50)
     elif args.n_sims is not None:
         n_simulations = args.n_sims
         n_years = args.n_years
-        print(f"RUNNING CUSTOM SIMULATION (OPTIMIZED)")
-        print("=" * 50)
+        if not args.mute:
+            print(f"RUNNING CUSTOM SIMULATION (OPTIMIZED)")
+            print("=" * 50)
     else:
         print("Error: Must specify --test, --n_sims, or --list")
         parser.print_help()
@@ -280,21 +290,25 @@ def main():
     print(f"• Years per simulation: {n_years}")
     print(f"• Random seed: {args.seed}")
     print(f"• Estimation method: OPTIMIZED (vectorized)")
+    print(f"• Mute mode: {args.mute}")
     print()
     
-    # Confirm for large runs
-    if n_simulations >= 100:
+    # Confirm for large runs (unless muted)
+    if n_simulations >= 100 and not args.mute:
         response = input(f"This will run {n_simulations} optimized simulations. Continue? (y/n): ")
         if response.lower() not in ['y', 'yes']:
             print("Simulation cancelled.")
             return
     
     # Run optimized simulation
-    print("Starting optimized simulation...")
+    if not args.mute:
+        print("Starting optimized simulation...")
+    
     results = run_optimized_simulation(
         n_simulations=n_simulations,
         n_years=n_years,
-        seed=args.seed
+        seed=args.seed,
+        mute=args.mute
     )
     
     return results

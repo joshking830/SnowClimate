@@ -41,8 +41,16 @@ def format_duration(seconds):
     else:
         days = seconds / 86400
         return f"{days:.2f} days"
+    
+def update_progress_bar(current, total, bar_length=50, prefix="Progress"):
+    """Update progress bar in place"""
+    progress = current / total
+    filled_length = int(bar_length * progress)
+    bar = '█' * filled_length + '-' * (bar_length - filled_length)
+    percent = progress * 100
+    print(f'\r{prefix}|{bar}| {percent:6.1f}% ({current}/{total})', end='', flush=True)
 
-def run_simulation_study(n_simulations=100, n_years=100, save_results=True, results_folder=None, model_type="original"):
+def run_simulation_study(n_simulations=100, n_years=100, save_results=True, results_folder=None, model_type="original", mute=False):
     """
     Run the complete simulation study as described in the paper:
     
@@ -58,6 +66,7 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
     - save_results: Whether to save results to files
     - results_folder: Folder name (if None, creates descriptive folder)
     - model_type: Type of model ("original", "optimized", "vectorized")
+    - mute: If True, show only progress bar instead of detailed output
     
     Result:
     - 100 different 100-year time series (C_t and X_t)
@@ -80,8 +89,9 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
         os.makedirs(os.path.join(results_folder, "parameter_estimates"), exist_ok=True)
         os.makedirs(os.path.join(results_folder, "summary"), exist_ok=True)
         
-        print(f"Results will be saved to: {results_folder}/")
-        print()
+        if not mute:
+            print(f"Results will be saved to: {results_folder}/")
+            print()
     
     # True parameters from Table 1
     true_params = {
@@ -101,23 +111,26 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
     all_series_data = []  # Store all 100-year C_t and X_t series
     runtime_data = []     # Store runtime for each simulation
     
-    print(f"Running {n_simulations} simulations, each with {n_years} years...")
+    if not mute:
+        print(f"\nRunning {n_simulations} simulations, each with {n_years} years...")
     
-    # Progress bar setup with slower, more visible updates
-    bar_length = 50
+    # Progress tracking
+    if mute:
+        update_progress_bar(0, n_simulations, prefix="")
     
     for sim in range(n_simulations):
         # Start simulation timer
         sim_start_time = time.time()
         
-        print(f"Simulation {sim + 1}/{n_simulations}:")
+        if not mute:
+            print(f"Simulation {sim + 1}/{n_simulations}:")
+            print("  Generating data...", end="", flush=True)
         
         # Step 1: Generate one complete 100-year series (C_t and X_t)
-        print("  Generating data...", end="", flush=True)
-        
-        # Actually generate the data
         changes, depths = model.simulate_snow_depths(n_years)
-        print(" ✓ Complete")
+        
+        if not mute:
+            print(" ✓ Complete")
         
         # Step 2: Store this series for later analysis
         all_series_data.append({
@@ -129,7 +142,8 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
         })
         
         # Step 3: Estimate parameters from this complete 100-year series
-        print("  Estimating parameters...", end="", flush=True)
+        if not mute:
+            print("  Estimating parameters...", end="", flush=True)
         
         try:
             params_est, success = estimate_parameters(depths, changes)
@@ -140,7 +154,8 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
                 print(" ✗ FAILED")
                 print(f"    Warning: Optimization failed for simulation {sim + 1}")
             else:
-                print(" ✓ Complete")
+                if not mute:
+                    print(" ✓ Complete")
         except Exception as e:
             print(" ✗ ERROR")
             print(f"    Error in simulation {sim + 1}: {e}")
@@ -150,10 +165,10 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
         
         # Save individual simulation results if requested
         if save_results:
-            print("  Saving data...", end="", flush=True)
+            if not mute:
+                print("  Saving data...", end="", flush=True)
             
             # Save time series data
-            
             # Save C_t series
             ct_df = pd.DataFrame({'day': range(1, len(changes) + 1), 'ct': changes})
             ct_df.to_csv(os.path.join(results_folder, "time_series", f"ct_simulation_{sim+1:03d}.csv"), index=False)
@@ -162,11 +177,18 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
             xt_df = pd.DataFrame({'day': range(1, len(depths) + 1), 'xt': depths})
             xt_df.to_csv(os.path.join(results_folder, "time_series", f"xt_simulation_{sim+1:03d}.csv"), index=False)
             
-            print(" ✓ Complete")
+            if not mute:
+                print(" ✓ Complete")
         
-        # Calculate and show simulation runtime
+        # Calculate simulation runtime
         sim_runtime = time.time() - sim_start_time
-        print(f"  → Simulation runtime: {format_duration(sim_runtime)}")
+        
+        if not mute:
+            print(f"  → Simulation runtime: {format_duration(sim_runtime)}")
+            # Overall simulation progress
+            overall_progress = (sim + 1) / n_simulations * 100
+            print(f"  → Overall progress: {overall_progress:.1f}% ({sim + 1}/{n_simulations} simulations)")
+            print()  # Extra line between simulations for readability
         
         # Store runtime data
         runtime_data.append({
@@ -175,10 +197,13 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
             'success': success_flags[-1]
         })
         
-        # Overall simulation progress
-        overall_progress = (sim + 1) / n_simulations * 100
-        print(f"  → Overall progress: {overall_progress:.1f}% ({sim + 1}/{n_simulations} simulations)")
-        print()  # Extra line between simulations for readability
+        # Update progress bar in mute mode
+        if mute:
+            update_progress_bar(sim + 1, n_simulations, prefix="")
+    
+    # Finish progress bar
+    if mute:
+        print()  # New line after progress bar
     
     # Convert to DataFrame for analysis
     results_df = pd.DataFrame(estimated_params, columns=param_names)
@@ -190,47 +215,53 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
     # Remove failed optimizations for summary statistics
     valid_results = results_df.dropna(subset=param_names)
     
-    print("\nSIMULATION COMPLETE!")
-    print("="*50)
-    
-    print(f"Total simulations: {n_simulations}")
-    print(f"Successful parameter estimates: {len(valid_results)}")
-    print(f"Success rate: {sum(success_flags)}/{len(success_flags)} = {100*sum(success_flags)/len(success_flags):.1f}%")
-    
-    # Add simple runtime summary with debug info
-    successful_runtimes = runtime_df[runtime_df['success']]['runtime_seconds']
+    if not mute:
+        print("\nSIMULATION COMPLETE!")
+        print("="*50)
+        
+        print(f"Total simulations: {n_simulations}")
+        print(f"Successful parameter estimates: {len(valid_results)}")
+        print(f"Success rate: {sum(success_flags)}/{len(success_flags)} = {100*sum(success_flags)/len(success_flags):.1f}%")
+        
+        # Add simple runtime summary with debug info
+        successful_runtimes = runtime_df[runtime_df['success']]['runtime_seconds']
 
-    if len(successful_runtimes) > 0:
-        print(f"\nRuntime summary:")
-        print(f"Average time per simulation: {format_duration(successful_runtimes.mean())}")
-        print(f"Total study time: {format_duration(successful_runtimes.sum())}")
+        if len(successful_runtimes) > 0:
+            print(f"\nRuntime summary:")
+            print(f"Average time per simulation: {format_duration(successful_runtimes.mean())}")
+            print(f"Total study time: {format_duration(successful_runtimes.sum())}")
 
-        # Runtime projections
-        avg_time_per_sim = successful_runtimes.mean()
-        print(f"\nRuntime Projections:")
-    print(f"Estimated time for 100 simulations: {format_duration(avg_time_per_sim * 100)}")
-    print(f"Estimated time for 1,000 simulations: {format_duration(avg_time_per_sim * 1000)}")
-    print(f"Estimated time for 10,000 simulations: {format_duration(avg_time_per_sim * 10000)}")
-    print(f"Estimated time for 100,000 simulations: {format_duration(avg_time_per_sim * 100000)}")
+            # Runtime projections
+            avg_time_per_sim = successful_runtimes.mean()
+            print(f"\nRuntime Projections:")
+            print(f"Estimated time for 100 simulations: {format_duration(avg_time_per_sim * 100)}")
+            print(f"Estimated time for 1,000 simulations: {format_duration(avg_time_per_sim * 1000)}")
+            print(f"Estimated time for 10,000 simulations: {format_duration(avg_time_per_sim * 10000)}")
+            print(f"Estimated time for 100,000 simulations: {format_duration(avg_time_per_sim * 100000)}")
 
-    # Show confidence intervals
-    std_time_per_sim = successful_runtimes.std()
-    if len(successful_runtimes) > 1:
-        print(f"\nRange estimate (±1 std dev):")
-        print(f"  100 sims: {format_duration((avg_time_per_sim - std_time_per_sim) * 100)} to {format_duration((avg_time_per_sim + std_time_per_sim) * 100)}")
-        print(f"  1,000 sims: {format_duration((avg_time_per_sim - std_time_per_sim) * 1000)} to {format_duration((avg_time_per_sim + std_time_per_sim) * 1000)}")
-        print(f"  10,000 sims: {format_duration((avg_time_per_sim - std_time_per_sim) * 10000)} to {format_duration((avg_time_per_sim + std_time_per_sim) * 10000)}")
-        print(f"  100,000 sims: {format_duration((avg_time_per_sim - std_time_per_sim) * 100000)} to {format_duration((avg_time_per_sim + std_time_per_sim) * 100000)}")
-    
-    else:
-        print(f"\nNo successful simulations found - cannot calculate runtime projections")
-        print(f"Check the success flags and runtime data above")
-    
+            # Show confidence intervals
+            std_time_per_sim = successful_runtimes.std()
+            if len(successful_runtimes) > 1:
+                print(f"\nRange estimate (±1 std dev):")
+                print(f"  100 sims: {format_duration((avg_time_per_sim - std_time_per_sim) * 100)} to {format_duration((avg_time_per_sim + std_time_per_sim) * 100)}")
+                print(f"  1,000 sims: {format_duration((avg_time_per_sim - std_time_per_sim) * 1000)} to {format_duration((avg_time_per_sim + std_time_per_sim) * 1000)}")
+                print(f"  10,000 sims: {format_duration((avg_time_per_sim - std_time_per_sim) * 10000)} to {format_duration((avg_time_per_sim + std_time_per_sim) * 10000)}")
+                print(f"  100,000 sims: {format_duration((avg_time_per_sim - std_time_per_sim) * 100000)} to {format_duration((avg_time_per_sim + std_time_per_sim) * 100000)}")
+        else:
+            print(f"\nNo successful simulations found - cannot calculate runtime projections")
+            print(f"Check the success flags and runtime data above")
+        
     # Calculate and display summary statistics (matching paper's Table 2)
-    print("\nPARAMETER ESTIMATION RESULTS (Summary Statistics)")
-    print("="*90)
-    print("\nFormat: True Value | Mean Estimate | Std Deviation | Bias")
-    print("-"*90)
+    if not mute:
+        print("\nPARAMETER ESTIMATION RESULTS (Summary Statistics)")
+        print("="*90)
+        print("\nFormat: True Value | Mean Estimate | Std Deviation | Bias")
+        print("-"*90)
+    else:
+        print("Parameter Estimation Results (Summary Statistics)")
+        print("="*50)
+        print("\nFormat: True Value | Mean Estimate | Std Deviation | Bias")
+        print("-"*50)
     
     summary_stats = {}
     for param in param_names:
@@ -251,27 +282,29 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
         
         print(f"{param:<12} | {true_val:>12.8f} | {mean_est:>13.8f} | {std_est:>13.8f} | {bias:>12.8f}")
     
-    # Show first few individual estimates for verification
-    print(f"\nSample of Individual Parameter Estimates (First 5 simulations):")
-    print("="*80)
-    print(f"{'Sim':<4} | {'Success':<8} | {'alpha0':<10} | {'alpha1':<10} | {'tau1':<8} | {'sigma':<10} | {'alpha2':<12}")
-    print("-"*80)
-    
-    for i in range(min(5, len(results_df))):
-        sim_num = results_df.iloc[i]['simulation']
-        success = success_flags[i]
-        if success and not results_df.iloc[i][param_names].isna().any():
-            params = results_df.iloc[i][param_names].values
-            print(f"{sim_num:<4} | {'True':<8} | {params[0]:<10.4f} | {params[1]:<10.4f} | {params[2]:<8.1f} | {params[3]:<10.4f} | {params[4]:<12.8f}")
-        else:
-            print(f"{sim_num:<4} | {'False':<8} | {'NaN':<10} | {'NaN':<10} | {'NaN':<8} | {'NaN':<10} | {'NaN':<12}")
-    
-    if len(results_df) > 10:
-        print(f"... (showing 5 of {len(results_df)} total simulations)")
+    if not mute:
+        # Show first few individual estimates for verification
+        print(f"\nSample of Individual Parameter Estimates (First 5 simulations):")
+        print("="*80)
+        print(f"{'Sim':<4} | {'Success':<8} | {'alpha0':<10} | {'alpha1':<10} | {'tau1':<8} | {'sigma':<10} | {'alpha2':<12}")
+        print("-"*80)
+        
+        for i in range(min(5, len(results_df))):
+            sim_num = results_df.iloc[i]['simulation']
+            success = success_flags[i]
+            if success and not results_df.iloc[i][param_names].isna().any():
+                params = results_df.iloc[i][param_names].values
+                print(f"{sim_num:<4} | {'True':<8} | {params[0]:<10.4f} | {params[1]:<10.4f} | {params[2]:<8.1f} | {params[3]:<10.4f} | {params[4]:<12.8f}")
+            else:
+                print(f"{sim_num:<4} | {'False':<8} | {'NaN':<10} | {'NaN':<10} | {'NaN':<8} | {'NaN':<10} | {'NaN':<12}")
+        
+        if len(results_df) > 10:
+            print(f"... (showing 5 of {len(results_df)} total simulations)")
     
     # Save final results
     if save_results:
-        print(f"\nSaving final results to {results_folder}/...")
+        if not mute:
+            print(f"\nSaving final results to {results_folder}/...")
         
         # Save parameter estimates
         results_df.to_csv(os.path.join(results_folder, "parameter_estimates", "all_estimates.csv"), index=False)
@@ -279,6 +312,9 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
         
         # Save runtime data
         runtime_df.to_csv(os.path.join(results_folder, "runtime_data.csv"), index=False)
+        
+        # Get runtime summary for summary file
+        successful_runtimes = runtime_df[runtime_df['success']]['runtime_seconds']
         
         # Save summary statistics
         summary_file = os.path.join(results_folder, "summary", "summary_statistics.txt")
@@ -311,12 +347,14 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
             f.write(f"Years per simulation: {n_years}\n")
             f.write(f"Total time series: {len(all_series_data)}\n")
             f.write(f"Days per series: {n_years * 365}\n")
+            f.write(f"Mute mode: {mute}\n")
             f.write("\nTRUE PARAMETERS (Table 1)\n")
             f.write("-" * 25 + "\n")
             for param, value in true_params.items():
                 f.write(f"{param}: {value}\n")
         
-        print(f"✓ Results saved to: {results_folder}/")
+        if not mute:
+            print(f"✓ Results saved to: {results_folder}/")
     
     return {
         'results_df': results_df,
@@ -331,6 +369,7 @@ def run_simulation_study(n_simulations=100, n_years=100, save_results=True, resu
         'n_years': n_years,
         'results_folder': results_folder if save_results else None
     }
+
 
 def main():
     parser = argparse.ArgumentParser(description='Run Lindley Random Walk Simulations')
