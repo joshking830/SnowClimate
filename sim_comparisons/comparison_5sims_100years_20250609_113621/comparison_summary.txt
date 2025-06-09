@@ -1,0 +1,33 @@
+LINDLEY SNOW MODEL COMPARISON RESULTS
+==================================================
+Comparison date: 2025-06-09 11:40:38
+Simulations: 5
+Years per simulation: 100
+Random seed: 42 (same for both methods)
+
+TIMING RESULTS
+--------------------
+Original total time:    4.24 minutes
+Optimized total time:   2.06 seconds
+Speedup factor:         123.64x
+
+SUCCESS RATES
+--------------------
+Original success:       5/5 = 100.0%
+Optimized success:      5/5 = 100.0%
+
+PROJECTED TIME SAVINGS
+-------------------------
+   100 simulations: 1.40 hours saved
+ 1,000 simulations: 14.03 hours saved
+10,000 simulations: 5.85 days saved
+
+FOLDER STRUCTURE
+--------------------
+Original results:       sim_comparisons/comparison_5sims_100years_20250609_113621/original
+Optimized results:      sim_comparisons/comparison_5sims_100years_20250609_113621/optimized
+
+VISUALIZATION COMMANDS
+-------------------------
+python visualize.py --folder sim_comparisons/comparison_5sims_100years_20250609_113621/original
+python visualize.py --folder sim_comparisons/comparison_5sims_100years_20250609_113621/optimized

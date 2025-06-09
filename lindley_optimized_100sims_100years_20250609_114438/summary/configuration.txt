@@ -1,0 +1,14 @@
+SIMULATION CONFIGURATION
+-------------------------
+Number of simulations: 100
+Years per simulation: 100
+Total time series: 100
+Days per series: 36500
+
+TRUE PARAMETERS (Table 1)
+-------------------------
+alpha0: -0.6
+alpha1: 1.0
+tau1: 274
+sigma: 1.0
+alpha2: -5e-06

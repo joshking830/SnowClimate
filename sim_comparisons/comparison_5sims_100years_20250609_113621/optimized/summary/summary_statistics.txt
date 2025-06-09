@@ -1,0 +1,18 @@
+LINDLEY RANDOM WALK SIMULATION STUDY RESULTS
+==================================================
+Total simulations: 5
+Years per simulation: 100
+Successful estimates: 5
+Success rate: 100.0%
+Average runtime per simulation: 0.41 seconds
+Total study time: 2.06 seconds
+
+PARAMETER ESTIMATION RESULTS
+------------------------------
+Parameter    | True Value   | Mean Estimate   | Std Error    | Bias        
+----------------------------------------------------------------------
+alpha0       | -0.60000000  | -0.59895659     | 0.00487543   | 0.00104341  
+alpha1       | 1.00000000   | 1.00142283      | 0.00664831   | 0.00142283  
+tau1         | 274.00000000 | 274.00039287    | 0.00300040   | 0.00039287  
+sigma        | 1.00000000   | 1.00021342      | 0.00099725   | 0.00021342  
+alpha2       | -0.00000500  | -0.00001011     | 0.00000022   | -0.00000511 
