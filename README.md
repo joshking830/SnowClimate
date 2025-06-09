@@ -226,11 +226,20 @@ alpha2     | -0.000005  | -0.000005  | 0.000012   |  0.000000
 
 ## Contributing
 
-### Development Guidelines
-1. Maintain clear separation between original and AI-assisted code
-2. Include comprehensive docstrings for all functions
-3. Follow existing code style and organization
-4. Add appropriate AI assistance disclosures to new files
+### Read-Only Repository Notice
+This repository is maintained as a research archive. While the code is public for transparency and reproducibility, direct commits are restricted.
+
+### How to Contribute
+1. **Fork** this repository
+2. Make your changes in your fork
+3. Submit a **Pull Request** with detailed description
+4. All changes will be reviewed before merging
+
+### Issues and Discussions
+- Use **Issues** for bug reports or feature requests
+- Use **Discussions** for questions about the research or implementation
+
+Thank you for your interest in this research!
 
 ### Testing
 Run comparison studies to validate any changes:
