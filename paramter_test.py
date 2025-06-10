@@ -24,7 +24,7 @@ def main():
     np.random.seed(42)
     
     # True parameters 'alpha0': -0.6, 'alpha1': 1.0, 'tau1': 274, 'sigma': 1.0, 'alpha2': -0.000005
-    true_params = {'alpha0': -0.6, 'alpha1': 1.0, 'tau1': 274, 'sigma': 1.0, 'alpha2': -0.000005}
+    true_params = {'alpha0': -0.7, 'alpha1': 1.4, 'tau1': 1, 'sigma': 0.8, 'alpha2': -0.000005}
     
     # Generate 100 years of data
     model = LindleySnowModel(**true_params)
@@ -61,8 +61,8 @@ def main():
     
     # Plot 3: One year X_t (Oct to Oct)
     # Start from day 274 of year 90 (1990) to day 273 of year 91 (1991)
-    year_start = 89 * 365 + 274  # Day 274 of year 90 (0-indexed)
-    year_end = year_start + 365   # One full year
+    year_start = 89 * 365 + 258  # Day 258 of (Sep 15) year 90 (0-indexed)
+    year_end = year_start + 273   # To day 166 (June 15) of next year
     
     depths_1yr = depths[year_start:year_end]
     days_in_year = np.arange(1, len(depths_1yr) + 1)
@@ -75,10 +75,10 @@ def main():
     axes[1, 0].set_ylim(bottom=0)
     
     # Add month markers
-    month_starts = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]
-    month_names = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
-    axes[1, 0].set_xticks(month_starts[::2])
-    axes[1, 0].set_xticklabels(month_names[::2], rotation=45)
+    month_starts = [17, 48, 78, 109, 139, 170, 200, 231, 262]
+    month_names = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun']
+    axes[1, 0].set_xticks(month_starts)
+    axes[1, 0].set_xticklabels(month_names, rotation=45)
     
     # Plot 4: One year C_t (Oct to Oct)
     changes_1yr = changes[year_start:year_end]
@@ -92,8 +92,8 @@ def main():
     axes[1, 1].axhline(0, color='red', linestyle='--', alpha=0.5)
     
     # Add month markers
-    axes[1, 1].set_xticks(month_starts[::2])
-    axes[1, 1].set_xticklabels(month_names[::2], rotation=45)
+    axes[1, 1].set_xticks(month_starts)
+    axes[1, 1].set_xticklabels(month_names, rotation=45)
     
     # Add parameter values at the top
     param_text = f"α₀ = {true_params['alpha0']}, α₁ = {true_params['alpha1']}, τ₁ = {true_params['tau1']}, σ = {true_params['sigma']}, α₂ = {true_params['alpha2']}"
