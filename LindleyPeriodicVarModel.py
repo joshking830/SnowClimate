@@ -27,8 +27,8 @@ from scipy.stats import norm
 import pandas as pd
 
 class LindleyPeriodicVarModel:
-    def __init__(self, alpha0=-0.6, alpha1=1.0, tau1=274, alpha2=-0.000005,
-                 beta0=1.0, beta1=0.5, tau2=274, beta2=0.0):
+    def __init__(self, alpha0=-0.7, alpha1=1.4, tau1=355, alpha2=-0.000005,
+                 beta0=0.6, beta1=0.3, tau2=50):
         """
         Initialize the Lindley Snow Model with periodic variance
         
@@ -52,7 +52,6 @@ class LindleyPeriodicVarModel:
         self.beta0 = beta0
         self.beta1 = beta1
         self.tau2 = tau2
-        self.beta2 = beta2
         
         self.P = 365  # Period (days in a year)
     
@@ -69,72 +68,26 @@ class LindleyPeriodicVarModel:
         mu_t = self.alpha0 + seasonal_component + self.alpha2 * t
         return mu_t, t
     
-    def periodic_std_piecewise(self, day_of_year, year):
-        """
-        Calculate periodic standard deviation with two distinct high-variance periods
-        
-        Pattern:
-        - High variance period 1: days tau2 to tau2+30 
-        - Low variance: days tau2+30 to tau2+120
-        - High variance period 2: days tau2+120 to tau2+150
-        - Low variance: days tau2+150 to tau2+365 (wrapping around)
-        
-        Returns: (σ_t, t)
-        """
-        t = (year - 1) * self.P + day_of_year
-        
-        # Normalize day_of_year to handle year wrapping
-        normalized_day = ((day_of_year - self.tau2) % self.P)
-        
-        # Define the periods (can be customized)
-        high_period_1_start = 0       # Start at tau2
-        high_period_1_end = 30        # 30 days of high variance
-        low_period_1_end = 120        # 90 days of low variance  
-        high_period_2_start = 120     # Start second high period
-        high_period_2_end = 150       # 30 days of high variance
-        # Remaining days (150-365) are low variance
-        
-        # Define high and low variance levels
-        high_std = self.beta0 + self.beta1     # beta0 + beta1 = high variance
-        low_std = self.beta0 - self.beta1     # beta0 - beta1 = low variance
-        
-        # Determine which period we're in
-        if high_period_1_start <= normalized_day < high_period_1_end:
-            # High variance period 1
-            sigma_t = high_std
-        elif high_period_1_end <= normalized_day < low_period_1_end:
-            # Low variance period 1  
-            sigma_t = low_std
-        elif high_period_2_start <= normalized_day < high_period_2_end:
-            # High variance period 2
-            sigma_t = high_std
-        else:
-            # Low variance period 2 (remainder of year)
-            sigma_t = low_std
-        
-        # Add linear trend
-        sigma_t += self.beta2 * t
-        
-        # Ensure positive
-        sigma_t = max(sigma_t, 0.01)
-        
-        return sigma_t, t
-    
     def periodic_std(self, day_of_year, year):
         """
         Calculate the periodic standard deviation σ_t for a given day and year
         
-        Choose between smooth cosine pattern or piecewise pattern
-        """
-        # Use piecewise function for two distinct high-variance periods
-        return self.periodic_std_piecewise(day_of_year, year)
+        σ_t = β₀ + β₁ * cos(2π(ν - τ₂)/P) + β₂ * t
         
-        # Alternative: use smooth cosine (comment out the line above and uncomment below)
-        # t = (year - 1) * self.P + day_of_year
-        # seasonal_component = self.beta1 * np.cos(2 * np.pi * (day_of_year - self.tau2) / self.P)
-        # sigma_t = self.beta0 + seasonal_component + self.beta2 * t
-        # sigma_t = max(sigma_t, 0.01)
-        # return sigma_t, t
+        IMPORTANT: This must match the likelihood function!
+        - If likelihood uses 4π (two cycles), use 4π here
+        - If likelihood uses 2π (one cycle), use 2π here
+        
+        Currently your likelihood function uses 4π, so matching that:
+        """
+        t = (year - 1) * self.P + day_of_year
+        
+        # Match the likelihood function: 4π for two cycles per year
+        seasonal_component = self.beta1 * np.cos(2 * np.pi * (day_of_year - self.tau2) / self.P)
+        
+        sigma_t = self.beta0 + seasonal_component
+        sigma_t = max(sigma_t, 0.01)  # Ensure positive
+        return sigma_t, t
     
     def periodic_changes(self, n_years):
         """
@@ -210,12 +163,11 @@ class LindleyPeriodicVarModel:
         
         return days, np.array(means)
 
-def log_likelihood_periodic_var(params, depths, changes):
+def log_likelihood_periodic_var_optimized(params, depths, changes):
     """
     OPTIMIZED: Calculate the log-likelihood for the periodic variance model using vectorized operations
     
-    This is more complex than the constant variance case because
-    each observation has a different variance σ²_t
+    Parameters: [α₀, α₁, τ₁, α₂, β₀, β₁, τ₂, β₂] (always 8 parameters)
     
     L(Θ|X) = Π_{t=1}^{NP} [1_{X_t>0} * f_{C_t}(C_t|μ_t,σ²_t) + 1_{X_t=0} * F_{C_t}(-X_{t-1}|μ_t,σ²_t)]
     
@@ -225,14 +177,9 @@ def log_likelihood_periodic_var(params, depths, changes):
     3. Use boolean indexing for conditional operations
     4. Minimize redundant calculations
     """
-    if len(params) == 8:
-        alpha0, alpha1, tau1, alpha2, beta0, beta1, tau2, beta2 = params
-    else:
-        # Fallback to constant variance if only 5 parameters
-        alpha0, alpha1, tau1, sigma_const, alpha2 = params
-        beta0, beta1, tau2, beta2 = sigma_const, 0, 274, 0
+    alpha0, alpha1, tau1, alpha2, beta0, beta1, tau2 = params
     
-    # Ensure positive variance parameters
+    # Ensure positive variance baseline
     if beta0 <= 0:
         return -np.inf
     
@@ -249,9 +196,9 @@ def log_likelihood_periodic_var(params, depths, changes):
     seasonal_mean = alpha1 * np.cos(2 * np.pi * (days_of_year - tau1) / P)
     mu_t_array = alpha0 + seasonal_mean + alpha2 * total_days
     
-    # PRE-COMPUTE: Seasonal components for VARIANCE with TWO CYCLES (vectorized)
-    seasonal_std = beta1 * np.cos(4 * np.pi * (days_of_year - tau2) / P)  # 4π for two cycles
-    sigma_t_array = beta0 + seasonal_std + beta2 * total_days
+    # PRE-COMPUTE: Seasonal components for VARIANCE - ONE CYCLE (vectorized)
+    seasonal_std = beta1 * np.cos(2 * np.pi * (days_of_year - tau2) / P)  # 2π for one cycle (matches simulation)
+    sigma_t_array = beta0 + seasonal_std
     
     # ENSURE: All standard deviations are positive (vectorized)
     sigma_t_array = np.maximum(sigma_t_array, 0.01)
@@ -273,13 +220,13 @@ def log_likelihood_periodic_var(params, depths, changes):
     if np.any(zero_depths):
         zero_indices = np.where(zero_depths)[0]
         
-        # Get previous depths for zero cases (vectorized approach)
+        # Get previous depths for zero cases
         x_prev_array = np.zeros(len(zero_indices))
-        valid_prev = zero_indices > 0  # Boolean mask for valid previous indices
-        if np.any(valid_prev):
-            prev_indices = zero_indices[valid_prev] - 1
-            x_prev_array[valid_prev] = depths[prev_indices]
-        # x_prev_array[~valid_prev] remains 0 (correct for t=0 case)
+        for i, idx in enumerate(zero_indices):
+            if idx == 0:
+                x_prev_array[i] = 0
+            else:
+                x_prev_array[i] = depths[idx - 1]
         
         mu_t_zero = mu_t_array[zero_depths]
         sigma_t_zero = sigma_t_array[zero_depths]
@@ -287,68 +234,59 @@ def log_likelihood_periodic_var(params, depths, changes):
     
     return log_lik_positive + log_lik_zero
 
-def estimate_parameters_periodic_var(depths, changes, initial_guess=None):
+def estimate_parameters_periodic_var_optimized(depths, changes, initial_guess=None):
     """
     OPTIMIZED: Estimate parameters for the periodic variance model using maximum likelihood
     
-    Parameters to estimate: [α₀, α₁, τ₁, α₂, β₀, β₁, τ₂, β₂]
+    Parameters to estimate: [α₀, α₁, τ₁, α₂, β₀, β₁, τ₂, β₂] (always 8 parameters)
     
     OPTIMIZATIONS:
-    1. Uses optimized vectorized log-likelihood function
-    2. Smart initial guess based on data characteristics
-    3. Adaptive bounds based on data properties
-    4. High-precision optimizer settings
+    1. Uses optimized vectorized log_likelihood function
+    2. Better initial guess strategy based on data characteristics
+    3. Improved bounds based on data characteristics
+    4. More efficient optimizer settings
     """
     if initial_guess is None:
-        # SMART: Data-driven initial guess
+        # IMPROVED: Smarter initial guess based on data characteristics
         mean_change = np.mean(changes)
         std_change = np.std(changes)
         
-        # Estimate seasonal patterns from data
-        n_days = len(changes)
-        if n_days >= 365:
-            # Try to estimate seasonal amplitude from first year
-            first_year_changes = changes[:365]
-            seasonal_est_mean = np.std(first_year_changes) * 0.5
-            seasonal_est_std = std_change * 0.3  # Variance should vary less than mean
-        else:
-            seasonal_est_mean = std_change * 0.5
-            seasonal_est_std = std_change * 0.3
+        # Estimate seasonal amplitude from data variability
+        seasonal_est_mean = std_change * 0.5  # Rough estimate for mean seasonality
+        seasonal_est_std = std_change * 0.3   # Variance should vary less than mean
         
         initial_guess = [
-            mean_change,          # alpha0: empirical mean
-            seasonal_est_mean,    # alpha1: estimated seasonal amplitude for mean
-            355,                  # tau1: December (winter accumulation)
-            0.0,                  # alpha2: no initial trend assumption
-            std_change,           # beta0: empirical standard deviation
-            seasonal_est_std,     # beta1: estimated seasonal amplitude for std
-            200,                  # tau2: July (summer variability peak)
-            0.0                   # beta2: no trend in variance
+            mean_change,          # alpha0: use actual mean of changes
+            seasonal_est_mean,    # alpha1: estimate from data variability
+            355,                  # tau1: October (standard snow model guess)
+            0.0,                  # alpha2: start with no trend
+            std_change,           # beta0: use actual std of changes
+            seasonal_est_std,     # beta1: estimate seasonal variation in std
+            50,                   # tau2: start same as tau1
         ]
     
-    # ADAPTIVE: Bounds based on data characteristics
+    # IMPROVED: Tighter bounds based on data characteristics
     change_range = np.max(changes) - np.min(changes)
     std_change = np.std(changes)
     
     bounds = [
         # Mean parameters
-        (np.min(changes) - 1, np.max(changes) + 1),    # alpha0: based on data range
-        (0.1, change_range),                            # alpha1: positive, up to data range
-        (1, 365),                                       # tau1: valid calendar days
-        (-0.001, 0.001),                                # alpha2: small trend coefficient
+        (np.min(changes) - 1, np.max(changes) + 1),     # alpha0: based on data range
+        (0.1, change_range),                             # alpha1: positive, up to data range
+        (1, 365),                                        # tau1: valid calendar days
+        (-0.001, 0.001),                                 # alpha2: small trend coefficient
         
-        # Variance parameters
-        (0.01, std_change * 3),                         # beta0: positive, reasonable range
-        (-std_change * 2, std_change * 2),              # beta1: can be negative (variance decreases)
-        (1, 365),                                       # tau2: valid calendar days
-        (-0.001, 0.001)                                 # beta2: small trend in variance
-    ]
+        # Variance parameters  
+        (0.01, std_change * 3),                          # beta0: positive, reasonable range
+        (-std_change * 2, std_change * 2),               # beta1: can be negative
+        (1, 365),                                        # tau2: valid calendar days
+        ]
     
-    # OPTIMIZE: High-precision settings due to vectorization speedup
+    # OPTIMIZED: Better optimizer options for maximum precision
     # Due to massive benefits from vectorization (10-50x speedup) we can afford to 
     # prioritize precision over speed in the optimizer settings
     result = minimize(
-        lambda params: -log_likelihood_periodic_var(params, depths, changes),
+        lambda params: -log_likelihood_periodic_var_optimized(params, depths, changes),
         initial_guess,
         method='L-BFGS-B',
         bounds=bounds,
