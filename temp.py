@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 class TemperatureSimulator:
     def __init__(self, alpha0=5.0, alpha1=20.0, 
-                 tau1=196, sigma=4.0, alpha2=0.00005):
+                 tau1=196, sigma=4.0, alpha2=0.00006):
         """
         Initialize temperature simulator with realistic parameters
         
@@ -392,6 +392,7 @@ def main():
     df = pd.DataFrame({
         'date': dates,
         'temperature': temperatures,
+        'temperature_f': np.array(temperatures) * 1.8 + 32,
         'year': [d.year for d in dates],
         'month': [d.month for d in dates],
         'day_of_year': [d.timetuple().tm_yday for d in dates]
@@ -399,6 +400,17 @@ def main():
     
     print("\nSample of generated data:")
     print(df.head(10))
+    
+        
+    start_year = dates[0].year
+    end_year = dates[-1].year
+    filename = f'temperature_data_{start_year}_{end_year}.csv'
+        
+    # Save to CSV
+    df.to_csv(filename, index=False)
+    print(f"Temperature data saved to: {filename}")
+    print(f"Data shape: {df.shape}")
+    print(f"Date range: {dates[0].strftime('%Y-%m-%d')} to {dates[-1].strftime('%Y-%m-%d')}")
     
     return temperatures, dates, metadata, df
 
