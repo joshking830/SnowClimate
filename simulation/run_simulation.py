@@ -120,7 +120,7 @@ def load_temperature_data(data_path=None):
         raise
 
 
-def create_output_directory(base_name="simulation"):
+def create_output_directory(base_name="SIM"):
     """
     Create timestamped output directory for results
     
@@ -137,12 +137,16 @@ def create_output_directory(base_name="simulation"):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_dir = f"{base_name}_{timestamp}"
     
-    # Create directory structure
-    os.makedirs(output_dir, exist_ok=True)
-    os.makedirs(os.path.join(output_dir, 'plots'), exist_ok=True)
-    os.makedirs(os.path.join(output_dir, 'data'), exist_ok=True)
+    # Create directory in the same folder as the simulation script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    full_output_path = os.path.join(script_dir, output_dir)
     
-    return output_dir
+    # Create directory structure
+    os.makedirs(full_output_path, exist_ok=True)
+    os.makedirs(os.path.join(full_output_path, 'plots'), exist_ok=True)
+    os.makedirs(os.path.join(full_output_path, 'data'), exist_ok=True)
+    
+    return full_output_path
 
 
 def run_single_simulation(model, temperatures, n_years=None, x0=0):
@@ -579,11 +583,11 @@ def main():
         
         # Create snow model with realistic parameters
         print("\nInitializing snow model...")
-        model = UnivariateSnowModel(b0=-3, b1=-0.3, sigma=1.4)
+        model = UnivariateSnowModel(b0=-3, b1=-0.3, sigma=1.6)
         print(f"Model parameters: b0={model.b0}, b1={model.b1}, sigma={model.sigma}")
         
         # Create output directory
-        output_dir = create_output_directory("univariate_simulation")
+        output_dir = create_output_directory("SIM")
         print(f"Output directory: {output_dir}")
         
         # Run single simulation
