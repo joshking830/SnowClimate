@@ -230,10 +230,23 @@ def plot_simulation_results(results, output_dir):
     changes = results['changes']
     n_days = len(depths)
     
-    # Create date array starting from summer (July 15th)
+    # Create date array that matches the actual temperature data dates
+    # Since we start simulation at day 196 (July 15th) of the temperature data,
+    # we need to account for this offset to get the correct seasonal alignment
     import datetime
-    start_date = datetime.date(2000, 7, 15)  # Start from July 15th to match simulation start
-    dates = [start_date + datetime.timedelta(days=i) for i in range(n_days)]
+    
+    # Temperature data starts from Jan 1, 2000, simulation starts from day 196 (July 15)
+    temp_data_start = datetime.date(2000, 1, 1)
+    
+    # Create dates that correspond to the original temperature data timeline
+    dates = []
+    for i in range(n_days):
+        # Calculate days from temperature data start
+        temp_data_day = 196 + i  # Day 196 is July 15th, day 0 of our simulation
+        
+        # Convert to actual calendar date
+        actual_date = temp_data_start + datetime.timedelta(days=temp_data_day - 1)
+        dates.append(actual_date)
     
     # Define seasons based on month
     def get_season(month):
@@ -285,48 +298,40 @@ def plot_simulation_results(results, output_dir):
     # Plot 2 (Top Right): One year cycle (October to September)
     ax2 = axes[0, 1]
     
-    # Find the most recent complete water year (Oct-Sep)
+    # Find a complete water year (Oct-Sep) in the data
+    # Since simulation starts in July, we need to find the first October and get a full year from there
     water_year_data = []
     water_year_days = []
     
-    # Look for a complete water year in the data
-    for start_year in range(len(dates) // 365):
-        start_idx = start_year * 365
-        if start_idx + 365 <= len(dates):
-            # Get data for this year
-            year_dates = dates[start_idx:start_idx + 365]
-            year_depths = depths[start_idx:start_idx + 365]
-            
-            # Reorder to start from October (month 10)
-            reordered_depths = []
-            reordered_days = []
-            
-            for i, date in enumerate(year_dates):
-                if date.month >= 10:  # Oct, Nov, Dec
-                    day_of_water_year = (date - datetime.date(date.year, 10, 1)).days + 1
-                else:  # Jan-Sep of next year
-                    day_of_water_year = (date - datetime.date(date.year-1, 10, 1)).days + 1
-                
-                reordered_days.append(day_of_water_year)
-                reordered_depths.append(year_depths[i])
-            
-            if len(reordered_depths) > 0:
-                water_year_data = reordered_depths
-                water_year_days = reordered_days
-                break
+    # Find the first October in our data
+    october_start_idx = None
+    for i, date in enumerate(dates):
+        if date.month == 10 and date.day == 1:
+            october_start_idx = i
+            break
+        elif date.month == 10 and october_start_idx is None:
+            # Use first October date found, even if not the 1st
+            october_start_idx = i
+            break
+    
+    if october_start_idx is not None and october_start_idx + 365 <= len(dates):
+        # Get one full year starting from October
+        water_year_dates = dates[october_start_idx:october_start_idx + 365]
+        water_year_depths = depths[october_start_idx:october_start_idx + 365]
+        
+        # Create water year day numbering (1-365, starting from October)
+        for i, (date, depth) in enumerate(zip(water_year_dates, water_year_depths)):
+            water_year_days.append(i + 1)  # Day 1-365 of water year
+            water_year_data.append(depth)
     
     if water_year_data:
-        # Sort by water year day
-        sorted_data = sorted(zip(water_year_days, water_year_data))
-        sorted_days, sorted_depths = zip(*sorted_data)
-        
-        ax2.plot(sorted_days, sorted_depths, color='blue', linewidth=2)
-        ax2.set_title('Annual Snow Cycle (Oct-Sep)')
+        ax2.plot(water_year_days, water_year_data, color='blue', linewidth=2)
+        ax2.set_title('Annual Snow Cycle (Oct-Sep Water Year)')
         ax2.set_xlabel('Day of Water Year')
         ax2.set_ylabel('Snow Depth (cm)')
         
-        # Add month labels
-        month_starts = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335]
+        # Add month labels - water year starts in October
+        month_starts = [1, 32, 62, 93, 124, 152, 183, 213, 244, 274, 305, 335]
         month_labels = ['Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep']
         ax2.set_xticks(month_starts[::2])  # Every other month
         ax2.set_xticklabels(month_labels[::2])

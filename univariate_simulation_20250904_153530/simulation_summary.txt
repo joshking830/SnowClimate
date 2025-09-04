@@ -1,0 +1,29 @@
+UNIVARIATE LINDLEY SNOW MODEL - SIMULATION SUMMARY
+============================================================
+
+Simulation Date: 2025-09-04 15:35:46
+Data Length: 730 days (2.0 years)
+Temperature Range: -24.8°C to 33.7°C
+
+Model Parameters (True):
+  b0 = -0.0400
+  b1 = -0.0200
+  sigma = 1.0000
+
+Parameter Estimates:
+  b0 = -0.0407
+  b1 = -0.0198
+  sigma = 1.0049
+  Estimation Success: True
+
+95% Confidence Intervals:
+  b0: [-0.1191, 0.0377] (SE: 0.0400)
+  b1: [-0.0250, -0.0147] (SE: 0.0026)
+  sigma: [0.9480, 1.0618] (SE: 0.0290)
+
+Snow Simulation Statistics:
+  Maximum depth: 52.5 cm
+  Mean depth: 14.4 cm
+  Days with snow: 604 (82.7%)
+  Days without snow: 126 (17.3%)
+
