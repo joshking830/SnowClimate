@@ -11,6 +11,7 @@ Date: Jun 26, 2025
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import os
 from datetime import datetime, timedelta
 
 class TemperatureSimulator:
@@ -367,6 +368,15 @@ def main():
     print("Temperature Simulation Module - FIXED VERSION")
     print("=" * 50)
     
+    # Create timestamped output directory
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = f"temperature_data_{timestamp}"
+    
+    # Create the output directory
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"Output directory created: {output_dir}")
+    
     # Create simulator with realistic parameters
     # These parameters simulate temperate climate (like continental US)
     temp_sim = TemperatureSimulator(
@@ -385,8 +395,10 @@ def main():
     print(f"Temperature range: {np.min(temperatures):.1f}°C to {np.max(temperatures):.1f}°C")
     print(f"Mean temperature: {np.mean(temperatures):.2f}°C")
     
-    # Visualize the results
-    temp_sim.visualize_temperatures(temperatures, dates, metadata, save_plot=True, temps_f=True)
+    # Create visualization and save to output directory
+    plot_filename = os.path.join(output_dir, 'temperature_simulation_100years.png')
+    temp_sim.visualize_temperatures(temperatures, dates, metadata, 
+                                   save_plot=True, temps_f=True, filename=plot_filename)
     
     # Create DataFrame for easy analysis
     df = pd.DataFrame({
@@ -401,14 +413,16 @@ def main():
     print("\nSample of generated data:")
     print(df.head(10))
     
-        
+    # Generate filename with date range
     start_year = dates[0].year
     end_year = dates[-1].year
-    filename = f'temperature_data_{start_year}_{end_year}.csv'
+    csv_filename = os.path.join(output_dir, f'temperature_data_{start_year}_{end_year}.csv')
         
-    # Save to CSV
-    df.to_csv(filename, index=False)
-    print(f"Temperature data saved to: {filename}")
+    # Save to CSV in the output directory
+    df.to_csv(csv_filename, index=False)
+    print(f"\nResults saved to directory: {output_dir}")
+    print(f"  - Temperature data: {csv_filename}")
+    print(f"  - Visualization: {plot_filename}")
     print(f"Data shape: {df.shape}")
     print(f"Date range: {dates[0].strftime('%Y-%m-%d')} to {dates[-1].strftime('%Y-%m-%d')}")
     
