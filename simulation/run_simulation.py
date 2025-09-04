@@ -579,7 +579,7 @@ def main():
         
         # Create snow model with realistic parameters
         print("\nInitializing snow model...")
-        model = UnivariateSnowModel(b0=-.04, b1=-.02, sigma=1)
+        model = UnivariateSnowModel(b0=-3, b1=-0.3, sigma=1.4)
         print(f"Model parameters: b0={model.b0}, b1={model.b1}, sigma={model.sigma}")
         
         # Create output directory
